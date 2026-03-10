@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Entrenador de Divisiones</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:linear-gradient(135deg,#4f46e5,#22c55e);min-height:100vh}
+.division-box{font-family:monospace;font-size:22px;line-height:1.6;white-space:pre;background:#0f172a;color:#22d3ee;padding:20px;border-radius:12px}
+.correct{animation:pop .4s}
+@keyframes pop{0%{transform:scale(.9)}70%{transform:scale(1.05)}100%{transform:scale(1)}}
+.reto-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px}
+.reto-item{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;background:#1e293b}
+.ok{background:#16a34a}
+.bad{background:#dc2626}
+</style>
+</head>
+
+<body class="flex flex-col items-center p-6 text-white">
+
+<h1 class="text-4xl font-bold mb-2">🧠 Entrenador de Divisiones</h1>
+<p class="mb-4 opacity-90">Practica y supera el reto</p>
+
+<div class="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-6 w-full max-w-xl">
+
+<div class="flex gap-3 mb-4 justify-center">
+<button onclick="nuevaDivision(1)" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl">Divisor 1 cifra</button>
+<button onclick="nuevaDivision(2)" class="bg-indigo-500 hover:bg-indigo-600 px-4 py-2 rounded-xl">Divisor 2 cifras</button>
+<button onclick="nuevaDivision(3)" class="bg-purple-500 hover:bg-purple-600 px-4 py-2 rounded-xl">Divisor 3 cifras</button>
+</div>
+
+<div class="flex justify-center gap-6 mb-3 text-lg">
+<div>⭐ Aciertos: <span id="aciertos" class="text-yellow-300 font-bold">0</span></div>
+<div>📊 Porcentaje: <span id="porcentaje" class="text-yellow-300 font-bold">0%</span></div>
+</div>
+
+<div class="w-full bg-gray-700 rounded-full h-4 mb-4">
+<div id="barra" class="bg-green-400 h-4 rounded-full" style="width:0%"></div>
+</div>
+
+<div class="flex justify-center mb-2">
+<button onclick="modoReto()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl">🔥 Reto de 10 divisiones</button>
+</div>
+
+<div id="retoGrid" class="reto-grid"></div>
+
+<div id="division" class="text-center text-3xl font-mono mb-6"></div>
+
+<div class="flex justify-center gap-6 mb-6">
+<div>
+<label class="block text-sm">Cociente</label>
+<input id="cociente" type="number" class="text-black border p-2 rounded w-32 text-center" />
+</div>
+
+<div>
+<label class="block text-sm">Resto</label>
+<input id="resto" type="number" class="text-black border p-2 rounded w-32 text-center" />
+</div>
+</div>
+
+<div class="flex justify-center gap-4 mb-4">
+<button onclick="comprobar()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-xl">Comprobar</button>
+<button onclick="mostrarSolucion()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-xl">Ver pasos</button>
+</div>
+
+<div id="resultado" class="text-center text-lg font-semibold"></div>
+
+<div id="pasos" class="division-box mt-6"></div>
+
+<div id="medalla" class="text-center text-3xl mt-4"></div>
+
+</div>
+
+<script>
+let dividendo=0
+let divisor=0
+let cocienteCorrecto=0
+let restoCorrecto=0
+
+let aciertos=0
+let intentos=0
+
+let retoActivo=false
+let retoIndice=0
+
+const aciertosSpan=document.getElementById("aciertos")
+const porcentajeSpan=document.getElementById("porcentaje")
+const barra=document.getElementById("barra")
+
+function randomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+
+function playSuccess(){
+let ctx=new(window.AudioContext||window.webkitAudioContext)()
+let osc=ctx.createOscillator()
+osc.type="sine"
+osc.frequency.value=650
+osc.connect(ctx.destination)
+osc.start()
+setTimeout(()=>osc.stop(),150)
+}
+
+function actualizarStats(){
+let porcentaje=intentos?Math.round((aciertos/intentos)*100):0
+aciertosSpan.textContent=aciertos
+porcentajeSpan.textContent=porcentaje+"%"
+}
+
+function actualizarBarra(){
+let progreso=(retoIndice/10)*100
+barra.style.width=progreso+"%"
+}
+
+function generarDivision(cifrasDivisor){
+let minDividendo=100
+let maxDividendo=999999
+
+let minDivisor=Math.pow(10,cifrasDivisor-1)
+let maxDivisor=Math.pow(10,cifrasDivisor)-1
+
+while(true){
+dividendo=randomInt(minDividendo,maxDividendo)
+divisor=randomInt(minDivisor,maxDivisor)
+if(divisor<dividendo) break
+}
+
+cocienteCorrecto=Math.floor(dividendo/divisor)
+restoCorrecto=dividendo%divisor
+}
+
+function nuevaDivision(cifrasDivisor){
+if(retoActivo) return
+
+generarDivision(cifrasDivisor)
+mostrarDivision()
+}
+
+function mostrarDivision(){
+document.getElementById("division").textContent=dividendo+" ÷ "+divisor
+resultado.textContent=""
+pasos.textContent=""
+cociente.value=""
+resto.value=""
+}
+
+function modoReto(){
+retoActivo=true
+retoIndice=0
+aciertos=0
+intentos=0
+
+crearGridReto()
+siguienteReto()
+actualizarStats()
+actualizarBarra()
+medalla.textContent=""
+}
+
+function crearGridReto(){
+let grid=document.getElementById("retoGrid")
+grid.innerHTML=""
+for(let i=1;i<=10;i++){
+let d=document.createElement("div")
+d.className="reto-item"
+d.id="reto"+i
+
+d.textContent=i
+
+grid.appendChild(d)
+}
+}
+
+function siguienteReto(){
+if(retoIndice>=10){
+retoActivo=false
+mostrarMedalla()
+return
+}
+
+retoIndice++
+actualizarBarra()
+
+let tipo=randomInt(1,3)
+
+generarDivision(tipo)
+mostrarDivision()
+}
+
+function comprobar(){
+
+let c=Number(cociente.value)
+let r=Number(resto.value)
+
+intentos++
+
+let correcto=(c===cocienteCorrecto && r===restoCorrecto)
+
+if(correcto){
+aciertos++
+playSuccess()
+resultado.textContent="✅ ¡Correcto!"
+resultado.classList.add("correct")
+}else{
+resultado.textContent="❌ Incorrecto"
+}
+
+actualizarStats()
+
+if(retoActivo){
+let item=document.getElementById("reto"+retoIndice)
+
+if(correcto){
+item.classList.add("ok")
+item.textContent="✓"
+}else{
+item.classList.add("bad")
+item.textContent="✕"
+}
+
+setTimeout(siguienteReto,700)
+}
+}
+
+function mostrarMedalla(){
+let porcentaje=Math.round((aciertos/intentos)*100)
+
+if(porcentaje>=90) medalla.textContent="🥇 Medalla de Oro"
+else if(porcentaje>=70) medalla.textContent="🥈 Medalla de Plata"
+else if(porcentaje>=50) medalla.textContent="🥉 Medalla de Bronce"
+else medalla.textContent="💪 Sigue practicando"
+}
+
+function mostrarSolucion(){
+
+let texto=""
+
+texto+="   "+cocienteCorrecto+"\n"
+texto+=divisor+" | "+dividendo+"\n"
+
+let dStr=dividendo.toString()
+let actual=""
+
+for(let i=0;i<dStr.length;i++){
+actual+=dStr[i]
+let num=parseInt(actual)
+
+if(num<divisor) continue
+
+let q=Math.floor(num/divisor)
+let mult=q*divisor
+let r=num-mult
+
+texto+=num+"\n"
+texto+="-"+mult+"\n"
+texto+=" "+r+"\n"
+
+actual=r.toString()
+}
+
+texto+="Resto = "+restoCorrecto
+
+pasos.textContent=texto
+}
+
+</script>
+
+</body>
+</html>
