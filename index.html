@@ -10,7 +10,7 @@ body{background:linear-gradient(135deg,#4f46e5,#22c55e);min-height:100vh}
 .division-box{font-family:monospace;font-size:22px;line-height:1.6;white-space:pre;background:#0f172a;color:#22d3ee;padding:20px;border-radius:12px}
 .correct{animation:pop .4s}
 @keyframes pop{0%{transform:scale(.9)}70%{transform:scale(1.05)}100%{transform:scale(1)}}
-.reto-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px}
+.reto-grid{display:none;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px}
 .reto-item{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;background:#1e293b}
 .ok{background:#16a34a}
 .bad{background:#dc2626}
@@ -40,7 +40,7 @@ body{background:linear-gradient(135deg,#4f46e5,#22c55e);min-height:100vh}
 </div>
 
 <div class="flex justify-center mb-2">
-<button onclick="modoReto()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl">🔥 Reto de 10 divisiones</button>
+<button onclick="toggleReto()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl">🔥 Reto de 10 divisiones</button>
 </div>
 
 <div id="retoGrid" class="reto-grid"></div>
@@ -61,7 +61,7 @@ body{background:linear-gradient(135deg,#4f46e5,#22c55e);min-height:100vh}
 
 <div class="flex justify-center gap-4 mb-4">
 <button onclick="comprobar()" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-xl">Comprobar</button>
-<button onclick="mostrarSolucion()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-xl">Ver pasos</button>
+<button id="btnPasos" onclick="mostrarSolucion()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-xl">Ver pasos</button>
 </div>
 
 <div id="resultado" class="text-center text-lg font-semibold"></div>
@@ -82,22 +82,34 @@ let aciertos=0
 let intentos=0
 
 let retoActivo=false
+let retoVisible=false
 let retoIndice=0
+let pasosVisibles=false
 
 const aciertosSpan=document.getElementById("aciertos")
 const porcentajeSpan=document.getElementById("porcentaje")
 const barra=document.getElementById("barra")
+const division=document.getElementById("division")
+const resultado=document.getElementById("resultado")
+const pasos=document.getElementById("pasos")
+const cocienteInput=document.getElementById("cociente")
+const restoInput=document.getElementById("resto")
+const medalla=document.getElementById("medalla")
+const btnPasos=document.getElementById("btnPasos")
+const grid=document.getElementById("retoGrid")
 
 function randomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
 
 function playSuccess(){
+try{
 let ctx=new(window.AudioContext||window.webkitAudioContext)()
 let osc=ctx.createOscillator()
 osc.type="sine"
 osc.frequency.value=650
 osc.connect(ctx.destination)
 osc.start()
-setTimeout(()=>osc.stop(),150)
+setTimeout(()=>{osc.stop();ctx.close()},150)
+}catch(e){}
 }
 
 function actualizarStats(){
@@ -114,7 +126,6 @@ barra.style.width=progreso+"%"
 function generarDivision(cifrasDivisor){
 let minDividendo=100
 let maxDividendo=999999
-
 let minDivisor=Math.pow(10,cifrasDivisor-1)
 let maxDivisor=Math.pow(10,cifrasDivisor)-1
 
@@ -136,29 +147,47 @@ mostrarDivision()
 }
 
 function mostrarDivision(){
-document.getElementById("division").textContent=dividendo+" ÷ "+divisor
+division.textContent=dividendo+" ÷ "+divisor
 resultado.textContent=""
+resultado.classList.remove("correct")
 pasos.textContent=""
-cociente.value=""
-resto.value=""
+cocienteInput.value=""
+restoInput.value=""
+pasosVisibles=false
+btnPasos.textContent="Ver pasos"
 }
 
-function modoReto(){
+function toggleReto(){
+
+if(retoVisible){
+grid.style.display="none"
+retoVisible=false
+retoActivo=false
+barra.style.width="0%"
+medalla.textContent=""
+return
+}
+
+retoVisible=true
+grid.style.display="flex"
+
 retoActivo=true
 retoIndice=0
 aciertos=0
 intentos=0
 
 crearGridReto()
-siguienteReto()
 actualizarStats()
 actualizarBarra()
 medalla.textContent=""
+
+siguienteReto()
 }
 
 function crearGridReto(){
-let grid=document.getElementById("retoGrid")
+
 grid.innerHTML=""
+
 for(let i=1;i<=10;i++){
 let d=document.createElement("div")
 d.className="reto-item"
@@ -171,6 +200,7 @@ grid.appendChild(d)
 }
 
 function siguienteReto(){
+
 if(retoIndice>=10){
 retoActivo=false
 mostrarMedalla()
@@ -188,12 +218,14 @@ mostrarDivision()
 
 function comprobar(){
 
-let c=Number(cociente.value)
-let r=Number(resto.value)
+let c=Number(cocienteInput.value)
+let r=Number(restoInput.value)
 
 intentos++
 
 let correcto=(c===cocienteCorrecto && r===restoCorrecto)
+
+resultado.classList.remove("correct")
 
 if(correcto){
 aciertos++
@@ -207,6 +239,7 @@ resultado.textContent="❌ Incorrecto"
 actualizarStats()
 
 if(retoActivo){
+
 let item=document.getElementById("reto"+retoIndice)
 
 if(correcto){
@@ -222,7 +255,7 @@ setTimeout(siguienteReto,700)
 }
 
 function mostrarMedalla(){
-let porcentaje=Math.round((aciertos/intentos)*100)
+let porcentaje=intentos?Math.round((aciertos/intentos)*100):0
 
 if(porcentaje>=90) medalla.textContent="🥇 Medalla de Oro"
 else if(porcentaje>=70) medalla.textContent="🥈 Medalla de Plata"
@@ -232,16 +265,29 @@ else medalla.textContent="💪 Sigue practicando"
 
 function mostrarSolucion(){
 
+if(pasosVisibles){
+pasos.textContent=""
+pasosVisibles=false
+btnPasos.textContent="Ver pasos"
+return
+}
+
+let dividendoStr=String(dividendo)
+let divisorStr=String(divisor)
+
 let texto=""
 
-texto+="   "+cocienteCorrecto+"\n"
-texto+=divisor+" | "+dividendo+"\n"
+// cociente arriba
+texto += " ".repeat(divisorStr.length+2) + cocienteCorrecto + "\n"
 
-let dStr=dividendo.toString()
+// caja de division
+texto += divisorStr + " ) " + dividendoStr + "\n"
+
 let actual=""
+let offset=0
 
-for(let i=0;i<dStr.length;i++){
-actual+=dStr[i]
+for(let i=0;i<dividendoStr.length;i++){
+actual+=dividendoStr[i]
 let num=parseInt(actual)
 
 if(num<divisor) continue
@@ -250,19 +296,29 @@ let q=Math.floor(num/divisor)
 let mult=q*divisor
 let r=num-mult
 
-texto+=num+"\n"
-texto+="-"+mult+"\n"
-texto+=" "+r+"\n"
+let numStr=String(num)
+let multStr=String(mult)
+let rStr=String(r)
 
-actual=r.toString()
+texto += " ".repeat(divisorStr.length+2+offset) + numStr + "\n"
+texto += " ".repeat(divisorStr.length+2+offset) + "-" + multStr + "\n"
+texto += " ".repeat(divisorStr.length+2+offset) + " " + rStr + "\n"
+
+actual=rStr
+
+offset=i+1-rStr.length+1
+if(offset<0) offset=0
 }
 
-texto+="Resto = "+restoCorrecto
+texto += "\nResto = " + restoCorrecto
 
 pasos.textContent=texto
+pasosVisibles=true
+btnPasos.textContent="Ocultar pasos"
 }
 
 </script>
 
 </body>
 </html>
+
